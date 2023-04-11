@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+</head>
+
+<body>
+    <h1>Login</h1>
+    <form id="loginForm">
+        <label for="username">Username:</label>
+        <input type="text" id="username" required>
+        <label for="password">Password:</label>
+        <input type="password" id="password" required>
+        <button type="submit">Login</button>
+    </form>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            loginUser(username, password);
+        });
+
+        function loginUser(username, password) {
+            // Dummy data
+            const users = {
+                t1: { password: '1234', role: 'teacher' },
+                s1: { password: '1234', role: 'student' },
+                s2: { password: '1234', role: 'student' },
+                s3: { password: '1234', role: 'student' },
+            };
+
+            if (users[username] && users[username].password === password) {
+                localStorage.setItem('loggedInUser', username);
+                if (users[username].role === 'teacher') {
+                    window.location.href = '/teacher';
+                } else if (users[username].role === 'student') {
+                    window.location.href = '/student';
+                }
+            } else {
+                alert('Invalid username or password');
+            }
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat Example</title>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body>
+  <h1>Chat with GPT</h1>
+  <h1 id="loggedInUser"></h1>
+  <input type="text" id="userInput" placeholder="Enter your prompt here">
+  <input type="text" id="keywords" placeholder="Enter keywords separated by commas">
+  <button id="submit">Submit</button>
+  <h2>Response:</h2>
+  <p id="response"></p>
+
+  <!-- Add a form to submit the corrected text -->
+  <form id="correctedTextForm">
+    <textarea id="correctedText" placeholder="Enter corrected text"></textarea>
+    <button type="submit">Send corrected text</button>
+  </form>
+  <!-- Add a container to display the student's revised content -->
+  <div id="studentRevisedContent"></div>
+
+  <script>
+    window.onload = function () {
+      const loggedInUser = localStorage.getItem('loggedInUser');
+      if (loggedInUser) {
+        document.getElementById('loggedInUser').innerHTML = `Logged in as ${loggedInUser}`;
+      } else {
+        alert('You are not logged in');
+        window.location.href = '/';
+      }
+    };
+    const GOOGLE_API_KEY = 'AIzaSyDA6OiYq3f0iZIER4fmSwsJW6_cbNZZC7M';
+
+    async function translateText(text, targetLanguage) {
+      const response = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${GOOGLE_API_KEY}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          q: text,
+          target: targetLanguage
+        })
+      });
+      const result = await response.json();
+      return result.data.translations[0].translatedText;
+    }
+
+    document.getElementById('submit').addEventListener('click', async () => {
+      const userInput = document.getElementById('userInput').value;
+      const keywordsInput = document.getElementById('keywords').value;
+      const keywords = keywordsInput.split(',').map(keyword => keyword.trim());
+      const responseElement = document.getElementById('response');
+
+      try {
+        const translatedUserInput = await translateText(userInput, 'en');
+        const translatedKeywords = await Promise.all(keywords.map(keyword => translateText(keyword, 'en')));
+
+        const response = await fetch('/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ prompt: translatedUserInput, keywords: translatedKeywords })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const translatedResponse = await translateText(result.response, 'ko');
+          responseElement.innerHTML = `${translatedResponse}<p>${result.response}`.replace(/\\n/g, '<br>');
+        } else {
+          throw new Error('Failed to fetch response from server');
+        }
+      } catch (error) {
+        responseElement.innerText = `Error: ${error.message}`;
+      }
+    });
+
+    // WebSocket connection and event listeners
+    const socket = io();
+
+    socket.on('receiveRevisedContent', (data) => {
+      const { loggedInUser, revisedContent } = data;
+      const submittedContentDiv = document.createElement('div');
+      submittedContentDiv.innerHTML = `<strong>${loggedInUser}:</strong> ${revisedContent}`;
+      document.getElementById('studentRevisedContent').appendChild(submittedContentDiv);
+    });
+
+    document.getElementById('correctedTextForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const correctedText = document.getElementById('correctedText').value;
+      socket.emit('sendCorrectedText', correctedText);
+    });
+
+  </script>
+</body>
+
+</html>

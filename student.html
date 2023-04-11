@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student</title>
+</head>
+
+<body>
+    <h1>Student Page</h1>
+    <h1 id="loggedInUser"></h1>
+    <div id="teacherCorrectedText"></div>
+    <form id="revisedContentForm">
+        <textarea id="gptFeedback" placeholder="GPT Feedback"></textarea>
+        <button id="requestFeedback">Request Feedback</button>
+        <div id="feedbackContainer" placeholder="GPT Feedback"></div>
+        <textarea id="revisedContent" placeholder="Enter revised content"></textarea>
+        <button type="submit">Send revised content</button>
+    </form>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        window.onload = function () {
+            const loggedInUser = localStorage.getItem('loggedInUser');
+            if (loggedInUser) {
+                document.getElementById('loggedInUser').innerHTML = `Logged in as ${loggedInUser}`;
+            } else {
+                alert('You are not logged in');
+                window.location.href = '/';
+            }
+        };
+        const socket = io();
+
+        socket.on('receiveCorrectedText', (data) => {
+            document.getElementById('teacherCorrectedText').innerText = data;
+        });
+
+        document.getElementById('requestFeedback').addEventListener('click', async () => {
+            const teacherDesign = document.getElementById('teacherCorrectedText').innerText;
+            const revisedContent = document.getElementById('gptFeedback').value;
+
+            // Request GPT feedback
+            const feedback = await requestGPTFeedback(teacherDesign, revisedContent);
+            document.getElementById('feedbackContainer').innerText = feedback;
+        });
+
+        document.getElementById('revisedContentForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const loggedInUser = localStorage.getItem('loggedInUser');
+            const revisedContent = document.getElementById('revisedContent').value;
+            socket.emit('sendRevisedContent', { loggedInUser, revisedContent });
+        });
+
+
+        async function requestGPTFeedback(teacherDesign, revisedContent) {
+            const response = await fetch('/analyze-content', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ teacherDesign, revisedContent }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                return data.response;
+            } else {
+                console.error('Error requesting GPT feedback');
+                return '';
+            }
+        }
+
+    </script>
+</body>
+
+</html>
